@@ -1,45 +1,70 @@
 import streamlit as st
-import matplotlib.pyplot as plt
-import matplotlib.patches as patches
+import numpy as np
+import plotly.graph_objects as go
+import time
 
-def draw_separator():
-    fig, ax = plt.subplots(figsize=(8, 3))
-    ax.set_xlim(0, 2.2)
-    ax.set_ylim(-0.3, 0.3)
+def create_3d_separator():
+    # Cylinder dimensions
+    length = 2
+    radius = 0.25
+    
+    # Create cylinder surface
+    theta = np.linspace(0, 2*np.pi, 30)
+    z = np.linspace(0, length, 50)
+    theta, z = np.meshgrid(theta, z)
+    x = radius * np.cos(theta)
+    y = radius * np.sin(theta)
 
-    # Separator Vessel
-    separator = patches.Rectangle((0, -0.25), 2, 0.5, linewidth=2, edgecolor='black', facecolor='lightgray')
-    ax.add_patch(separator)
+    # Create plot
+    fig = go.Figure()
 
-    # Phase Layers
-    water = patches.Rectangle((0, -0.25), 2, 0.15, linewidth=0, facecolor='blue', alpha=0.6, label="Water")
-    oil = patches.Rectangle((0, -0.1), 2, 0.15, linewidth=0, facecolor='orange', alpha=0.6, label="Oil")
-    gas = patches.Rectangle((0, 0.05), 2, 0.2, linewidth=0, facecolor='yellow', alpha=0.5, label="Gas")
+    # Separator shell
+    fig.add_trace(go.Surface(x=x, y=y, z=z, opacity=0.2, colorscale='gray', showscale=False))
 
-    ax.add_patch(water)
-    ax.add_patch(oil)
-    ax.add_patch(gas)
+    # Fluid layers (simplified)
+    fluid_z = np.linspace(0, length, 50)
+    for layer, color, label in zip([0.1, 0.2, 0.3], ['blue', 'orange', 'yellow'], ['Water', 'Oil', 'Gas']):
+        fig.add_trace(go.Surface(
+            x=x, y=y, z=fluid_z - (length/2) + layer,
+            colorscale=[[0, color], [1, color]],
+            showscale=False, opacity=0.6,
+            name=label
+        ))
 
-    # Weir Plate
-    weir = patches.Rectangle((1.5, -0.25), 0.05, 0.3, linewidth=2, edgecolor='black', facecolor='darkgray', label="Weir Plate")
-    ax.add_patch(weir)
+    # Layout
+    fig.update_layout(
+        title="3D Three-Phase Separator",
+        scene=dict(
+            xaxis=dict(title='Width (m)'),
+            yaxis=dict(title='Height (m)'),
+            zaxis=dict(title='Length (m)', range=[-length/2, length/2])
+        ),
+        margin=dict(l=0, r=0, t=30, b=0)
+    )
+    return fig
 
-    # Inlet and Outlets
-    ax.plot(-0.1, 0, "ro", markersize=8, label="Inlet")
-    ax.plot(2.1, -0.1, "go", markersize=8, label="Water Outlet")
-    ax.plot(2.1, 0.1, "bo", markersize=8, label="Oil Outlet")
-    ax.plot(2.1, 0.25, "yo", markersize=8, label="Gas Outlet")
+def animate_flow():
+    # Animation settings
+    steps = 20
+    delay = 0.1  # seconds
 
-    ax.set_xticks([])
-    ax.set_yticks([])
-    ax.set_title("Three-Phase Separator (Oil-Water-Gas)")
+    for step in range(steps):
+        # Update the fluid levels to simulate flow
+        fig = create_3d_separator()
+        shift = 0.05 * np.sin(2 * np.pi * step / steps)
+        fig.update_traces(selector=dict(name='Water'), zshift=shift)
+        fig.update_traces(selector=dict(name='Oil'), zshift=-shift)
+        fig.update_traces(selector=dict(name='Gas'), zshift=shift)
 
-    plt.legend()
-    st.pyplot(fig)
+        st.plotly_chart(fig)
+        time.sleep(delay)
 
 # Streamlit UI
-st.title("Three-Phase Separator Visualization")
-st.write("This app visualizes a horizontal three-phase separator with oil, water, and gas layers.")
+st.title("Interactive 3D Three-Phase Separator")
+st.write("Visualize and animate the flow of oil, water, and gas in a horizontal three-phase separator.")
 
-if st.button("Show Separator"):
-    draw_separator()
+if st.button("Start Animation"):
+    animate_flow()
+else:
+    fig = create_3d_separator()
+    st.plotly_chart(fig)
